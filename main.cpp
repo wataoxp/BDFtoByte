@@ -16,7 +16,7 @@ int main(int argc,char*argv[])
     REGEX regexs;
     FILEEDIT fileEdit;
 
-    std::string JisCode;
+    std::string mojiCode;
     std::string ByteArray;
     
     std::optional<std::vector<unsigned char>> result;
@@ -27,31 +27,50 @@ int main(int argc,char*argv[])
     UserInputFiles Names;
     FontFormats FontSize;
 
-    if (fileEdit.ArgumentCheck(Names.BdfFileName) != true)
+    ErrorCode EditProg;
+
+    EditProg = fileEdit.ArgumentCheck(Names.BdfFileName);
+    if (EditProg != ErrorCode::Success)
     {
+        std::cerr << "BDFファイルが見つかりません" << Names.BdfFileName << std::endl;
         return 1;
     }
 
-    fileEdit.CheckBdfFile(Names.BdfFileName,FontSize.Height,FontSize.Width,Names.StartCode);
+    EditProg = fileEdit.CheckBdfFile(Names.BdfFileName,FontSize.Height,FontSize.Width,Names.StartCode);
+    
+    switch (EditProg)
+    {
+    case ErrorCode::unknownFontSize:
+        std::cerr << "フォントサイズが見つかりません" << std::endl;
+        break;
+    case ErrorCode::unknownFontCode:
+        std::cerr << "文字コードが見つかりません" << std::endl;
+        break;
+    default:
+        break;
+    }
+
+    // フォントサイズをREGEXインスタンスに伝達
     regexs.SetFormat(FontSize.Height,FontSize.Width);
     
     /********** 暫定値 **************/
-    Names.EndCode = FONT_END_CODE;
+    Names.EndCode = 3;
 
     // BDF->Byte
-    for (int i = 0; i <= (Names.EndCode - Names.StartCode); i++)    // 出力数=END-START
+    for (int i = 0; i <= ((Names.StartCode+Names.EndCode) - Names.StartCode); i++)    // 出力数=END-START
     {             
-        JisCode = bdf.HextoString(Names.StartCode,i);                 // START+出力数=現在のJISコード
-        result = bdf.ConvertBDFtoArray(Names.BdfFileName,JisCode);
+        mojiCode = bdf.CodetoString(Names.StartCode,i);                 // START+出力数=現在のJISコード
+        result = bdf.ConvertBDFtoArray(Names.BdfFileName, mojiCode,FontSize.Width);     // 戻り値が変わったよ
         
         if(!result)
         {
-            std::cerr << "指定されたJISコードが見つかりません:0x" << std::hex << JisCode << std::endl;
+            std::cerr << "指定されたJISコードが見つかりません:0x" << std::hex << mojiCode << std::endl;
             return 2;
         }
 
         Array = *result;                                        // vectorの中身を取り出す
-        ByteArray = bdf.ExportByteArray(Array,JisCode);
+        mojiCode = fileEdit.DecToHex(mojiCode,4);               // 10進数を16進数に
+        ByteArray = bdf.ExportByteArray(Array,mojiCode);
         ss << ByteArray;                                        // ストリームに文字列を追加
     }
 

@@ -8,7 +8,7 @@ FILEEDIT::~FILEEDIT()
 {
 }
 
-bool FILEEDIT::ArgumentCheck(std::string& Filename)
+ErrorCode FILEEDIT::ArgumentCheck(std::string& Filename)
 {
     bool openflag = false;
 
@@ -26,15 +26,14 @@ bool FILEEDIT::ArgumentCheck(std::string& Filename)
         }
         else
         {
-            std::cerr << "該当するファイルが見つかりません" << std::endl;
-            return false;
+            return ErrorCode::NotFoundBDF;
         }
     }
 
-    return true;
+    return ErrorCode::Success;
 }
 
-bool FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& code)
+ErrorCode FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& code)
 {
     std::ifstream ifs(Filename);
     std::string Line;
@@ -43,8 +42,7 @@ bool FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& code)
 
     if (!ifs.is_open())
     {
-        std::cerr << "BDFファイル開封エラー" << Filename << std::endl;
-        return false;
+        return ErrorCode::NotOpenBDF;
     }
 
     while (std::getline(ifs,Line))
@@ -67,31 +65,30 @@ bool FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& code)
     }
     else
     {
-        std::cerr << "FontSize Error" << std::endl;
-        return false;
+        return ErrorCode::unknownFontSize;
     }
 
     while (std::getline(ifs,Line))
     {
         if (Line.find("STARTCHAR") != std::string::npos)
         {
-            break;
+            break;            
         }
     }
-    result = std::sscanf(Line.c_str(),"STARTCHAR %x",&Firstcode);
-    
-    if (result == 1)
+    std::getline(ifs,Line);
+    if (Line.find("ENCODING") != std::string::npos)
     {
+        result = std::sscanf(Line.c_str(),"ENCODING %d",&Firstcode);
         code = Firstcode;
-        std::cout << "先頭コード:0x" << std::hex << Firstcode << std::endl; 
+        std::cout << "先頭コード:" << std::dec << Firstcode << std::endl; 
     }
     else
     {
-        std::cerr << "Code Error" << std::endl;
-        return false;
+        std::cerr << "Code Error" << Line.c_str() << std::endl;
+        return ErrorCode::unknownFontCode;
     }
     
-    return true;
+    return ErrorCode::Success;
 }
 
 std::string FILEEDIT::InputFileRead(const std::string& filename)
