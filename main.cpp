@@ -2,145 +2,199 @@
 #include "Regex.h"
 #include "FileEdit.h"
 
-const std::string tmpByteFileName = "tmpByte.h";
-const std::string tmpArrayByteName = "tmpArrayByte.h";
-const std::string OutputArrayName = "font";
-const std::string OutputFileName = "font_lcd.h";
-const std::string DirectoryPath = "./header";
+struct SystemOutputNames{
+    const std::string tmpByteFileName;
+    const std::string tmpArrayByteName;
+    const std::string OutputArrayName;
+    const std::string OutputFileName;
+    const std::string DirectoryPath;
+};
+
+static bool CheckBDF(std::string& filename,FILEEDIT& edit,FontFormats& fonts,int& code);
+static bool ConvertBDF(UserInputFiles& Names,FontFormats& FontSize,BDF& bdf,FILEEDIT& fileEdit,std::stringstream& ss);
+static std::string EditRegex(const SystemOutputNames& names,std::string& after,REGEX& regexs,FILEEDIT& fileEdit,FontFormats& fonts);
 
 const int FONT_END_CODE = 0x2123;
 
 int main(int argc,char*argv[]) 
 {
+    // 各種オブジェクト
     BDF bdf;
     REGEX regexs;
     FILEEDIT fileEdit;
 
-    std::string mojiCode;
-    std::string ByteArray;
-    
-    std::optional<std::vector<unsigned char>> result;
-    std::vector<unsigned char> Array;
-
-    std::stringstream ss;
-
+    FunctionResult Result;
     UserInputFiles Names;
     FontFormats FontSize;
 
-    ErrorCode EditProg;
+    static const SystemOutputNames FileNames = {
+        "tmpByte.h",
+        "tmpArrayByte.h",
+        "font",
+        "font_lcd.h",
+        "./header",
+    };
 
-    EditProg = fileEdit.ArgumentCheck(Names.BdfFileName);
-    if (EditProg != ErrorCode::Success)
+    if (!CheckBDF(Names.BdfFileName,fileEdit,FontSize,Names.StartCode))
     {
-        std::cerr << "BDFファイルが見つかりません" << Names.BdfFileName << std::endl;
+        std::cerr << "Error BDF" << std::endl;
         return 1;
     }
 
-    EditProg = fileEdit.CheckBdfFile(Names.BdfFileName,FontSize.Height,FontSize.Width,Names.StartCode);
-    
-    switch (EditProg)
-    {
-    case ErrorCode::unknownFontSize:
-        std::cerr << "フォントサイズが見つかりません" << std::endl;
-        break;
-    case ErrorCode::unknownFontCode:
-        std::cerr << "文字コードが見つかりません" << std::endl;
-        break;
-    default:
-        break;
-    }
-
-    // フォントサイズをREGEXインスタンスに伝達
-    regexs.SetFormat(FontSize.Height,FontSize.Width);
-    
+    std::stringstream ss;
     /********** 暫定値 **************/
     Names.EndCode = 3;
 
-    // BDF->Byte
-    for (int i = 0; i <= ((Names.StartCode+Names.EndCode) - Names.StartCode); i++)    // 出力数=END-START
-    {             
-        mojiCode = bdf.CodetoString(Names.StartCode,i);                 // START+出力数=現在のJISコード
-        result = bdf.ConvertBDFtoArray(Names.BdfFileName, mojiCode,FontSize.Width);     // 戻り値が変わったよ
-        
-        if(!result)
-        {
-            std::cerr << "指定されたJISコードが見つかりません:0x" << std::hex << mojiCode << std::endl;
-            return 2;
-        }
-
-        Array = *result;                                        // vectorの中身を取り出す
-        mojiCode = fileEdit.DecToHex(mojiCode,4);               // 10進数を16進数に
-        ByteArray = bdf.ExportByteArray(Array,mojiCode);
-        ss << ByteArray;                                        // ストリームに文字列を追加
+    // BDF to Byte
+    if (!ConvertBDF(Names,FontSize,bdf,fileEdit,ss))
+    {
+        std::cerr << "Error Convert" << std::endl;
+        return 2;
     }
 
-    if (fileEdit.OutputFileWrite(tmpByteFileName,ss.str(),DirectoryPath) == "Error")
+    if (fileEdit.OutputFileWrite(FileNames.tmpByteFileName,ss.str(),FileNames.DirectoryPath) == "Error")
     {
-        std::cerr << "BDF->BYTE ファイル開封エラー:" << tmpByteFileName << std::endl;
+        std::cerr << "BDF->BYTE ファイル開封エラー:" << FileNames.tmpByteFileName << std::endl;
         return 3;
     }
     
-    std::cout << "変換完了/出力ファイル:" << tmpByteFileName << std::endl;
+    std::cout << "変換完了/出力ファイル:" << FileNames.tmpByteFileName << std::endl;
    
-    // もう使わない
-    bdf.~BDF();
-
     // Edit Byte Array
     char enter;
-    std::string Before,After;
+    std::string After;
 
     std::cout << "LCD用フォントを作成しますか？(y/n)" << std::endl;
     std::cin >> enter;
 
-    if (enter != 'y')
+    std::cout << EditRegex(FileNames,After,regexs,fileEdit,FontSize) << std::endl;
+
+    return 0;
+}
+
+static bool CheckBDF(std::string& filename,FILEEDIT& edit,FontFormats& fonts,int& code)
+{
+    ErrorCode result;
+
+    std::cout << "BDFファイルを指定してください:";
+    std::cin >> filename;
+    std::cout << "BDFファイル名:" << filename << std::endl;
+
+    result = edit.ArgumentCheck(filename);
+
+    if (result != ErrorCode::Success)
     {
-        std::cout << "処理を終了します" << std::endl;
-        return 0;
+        std::cerr << "BDFファイルが見つかりません" << filename << std::endl;
+        return false;
+    }
+    std::cout << "BDFファイルが見つかりました" << std::endl;
+
+    result = edit.CheckBdfFile(filename,fonts.Width,fonts.Height,code);
+
+    if (result != ErrorCode::Success)
+    {
+        switch (result)
+        {
+        case ErrorCode::unknownFontSize:
+            std::cerr << "フォントサイズが見つかりません" << std::endl;
+            break;
+        case ErrorCode::unknownFontCode:
+            std::cerr << "文字コードが見つかりません" << std::endl;
+            break;
+        default:
+            break;
+        }
+        return false;
     }
 
-    Before = fileEdit.InputFileRead(tmpByteFileName);
-    if (Before == "Error")
-    {
-        std::cerr << "入力ファイル開封エラー:" << tmpByteFileName << std::endl;
-        return 4;
-    }   
-    After = regexs.EditFileString(Before,FontSize.Width);      // 配列群を1つの配列に
+    std::cout << "Height:" << std::dec << fonts.Height << std::endl;
+    std::cout << "Width:" << std::dec << fonts.Width << std::endl;
 
-    if (fileEdit.OutputFileWrite(tmpArrayByteName,After,DirectoryPath) == "Error") 
+    std::cout << "先頭コード:" << std::dec << code << std::endl; 
+
+    return true;
+}
+
+static bool ConvertBDF(UserInputFiles& Names,FontFormats& FontSize,BDF& bdf,FILEEDIT& fileEdit,std::stringstream& ss)
+{
+    std::string mojiCode;
+    std::string ByteArray;
+    
+    FunctionResult Result;
+    std::vector<unsigned char> Array;
+
+    for (int i = 0; i <= ((Names.StartCode+Names.EndCode) - Names.StartCode); i++)    // 出力数=END-START
+    {             
+        mojiCode = bdf.CodetoString(Names.StartCode,i);
+        Result = bdf.ConvertBDFtoArray(Names.BdfFileName, mojiCode,FontSize.Width);     
+        
+        if(!Result.result)          /***********文字コードがないときは読み飛ばす処理を追加************/
+        {
+            std::cerr << "指定されたJISコードが見つかりません:0x" << std::hex << mojiCode << std::endl;
+            return false;
+        }
+
+        Array = Result.data;                                    // vectorを取り出す
+        mojiCode = fileEdit.DecToHex(mojiCode,4);               // 10進数を16進数に
+        ByteArray = bdf.ExportByteArray(Array,mojiCode);
+        ss << ByteArray;                                        // ストリームに文字列を追加
+    }
+    return true;
+}
+
+static std::string EditRegex(const SystemOutputNames& names,std::string& after,REGEX& regexs,FILEEDIT& fileEdit,FontFormats& fonts)
+{
+    std::string before;
+    std::string result = "Success";
+
+    // フォントサイズをREGEXインスタンスに伝達
+    regexs.SetFormat(fonts.Height,fonts.Width);
+
+    before = fileEdit.InputFileRead(names.tmpByteFileName,names.DirectoryPath);
+    if (before == "Error")
     {
-        std::cerr << "char->short 出力ファイル開封エラー:" << tmpArrayByteName << std::endl;
-        return 5;
+        result = "入力ファイル開封エラー";
+        return result;
     }
 
-    std::cout << "2バイト配列ファイル作成完了" << tmpArrayByteName << std::endl;
+    after = regexs.EditFileString(before,fonts.Width);
+    if (fileEdit.OutputFileWrite(names.tmpArrayByteName,after,names.DirectoryPath) == "Error")
+    {
+        result = "出力ファイル開封エラー";
+        return result;
+    }
+    
+    std::cout << "2バイト配列ファイル作成完了" << names.tmpArrayByteName << std::endl;
 
-    // FontSize.Widthに応じて適切なデータ型でFontReverseを呼び出す
-    if (FontSize.Width <= 8)
+    if (fonts.Width <= 8)
     {
         std::cout << "8bitフォントとして処理します。" << std::endl;
-        std::vector<uint8_t> data = regexs.StringtoHex<uint8_t>(After);
-        After = regexs.FontReverse<uint8_t>(data, OutputArrayName);
+        std::vector<uint8_t> data = regexs.StringtoHex<uint8_t>(after);
+        after = regexs.FontReverse<uint8_t>(data, names.OutputArrayName);
     }
-    else if (FontSize.Width <= 16)
+    else if (fonts.Width <= 16)
     {
         std::cout << "16bitフォントとして処理します。" << std::endl;
-        std::vector<uint16_t> data = regexs.StringtoHex<uint16_t>(After);
-        After = regexs.FontReverse<uint16_t>(data, OutputArrayName);
+        std::vector<uint16_t> data = regexs.StringtoHex<uint16_t>(after);
+        after = regexs.FontReverse<uint16_t>(data, names.OutputArrayName);
     }
+
+    if (fileEdit.OutputFileWrite(names.OutputFileName,after,names.DirectoryPath) == "Error")
+    {
+        result = "出力ファイル開封エラー";
+        return result;
+    }
+    
+    return result;
+}
+
+
+#if 0
+    32ビットフォントはテストできないので保留
     else if (FontSize.Width <= 32)
     {
         std::cout << "32bitフォントとして処理します。" << std::endl;
         std::vector<uint32_t> data = regexs.StringtoHex<uint32_t>(After);
         After = regexs.FontReverse<uint32_t>(data, OutputArrayName);
     }
-    
-    if (fileEdit.OutputFileWrite(OutputFileName,After,DirectoryPath) == "Error")
-    {
-        std::cerr << "出力ファイル開封エラー:" << OutputFileName << std::endl;
-        return 6;
-    }
-
-    std::cout << "すべての処理が完了しました" << OutputFileName << std::endl;
-
-    return 0;
-}
+#endif

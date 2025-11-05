@@ -14,13 +14,12 @@ ErrorCode FILEEDIT::ArgumentCheck(std::string& Filename)
 
     while (!openflag)
     {
-        std::cout << "BDFファイルを指定してください:";
-        std::cin >> Filename;
-        std::cout << "BDFファイル名:" << Filename << std::endl;
+        // std::cout << "BDFファイルを指定してください:";
+        // std::cin >> Filename;
+        // std::cout << "BDFファイル名:" << Filename << std::endl;
 
         if(std::filesystem::is_regular_file(Filename))     // 指定された名前の「ファイル」があるかチェック。ディレクトリはエラー
         {
-            std::cout << "BDFファイルが見つかりました" << std::endl;
             openflag = true;
             break;          // 念のため
         }
@@ -45,6 +44,7 @@ ErrorCode FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& 
         return ErrorCode::NotOpenBDF;
     }
 
+    // フォントサイズの取得
     while (std::getline(ifs,Line))
     {
         // 戻り値がnposでないとき、該当文字列を発見した
@@ -60,13 +60,13 @@ ErrorCode FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& 
     {
         x = Height;
         y = Width;
-        std::cout << "Height:" << std::dec << Height << std::endl;
-        std::cout << "Width:" << std::dec << Width << std::endl;
     }
     else
     {
         return ErrorCode::unknownFontSize;
     }
+
+    // 先頭文字コードの取得
 
     while (std::getline(ifs,Line))
     {
@@ -80,7 +80,6 @@ ErrorCode FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& 
     {
         result = std::sscanf(Line.c_str(),"ENCODING %d",&Firstcode);
         code = Firstcode;
-        std::cout << "先頭コード:" << std::dec << Firstcode << std::endl; 
     }
     else
     {
@@ -91,11 +90,18 @@ ErrorCode FILEEDIT::CheckBdfFile(const std::string& Filename,int& x,int& y,int& 
     return ErrorCode::Success;
 }
 
-std::string FILEEDIT::InputFileRead(const std::string& filename)
+std::string FILEEDIT::InputFileRead(const std::string& filename,const std::string& path)
 {
     std::string result = "Error";
+    std::filesystem::path dirPath = path;
+    bool created = std::filesystem::create_directory(dirPath);
 
-    std::ifstream ifs(filename);
+    if (created)
+    {
+        std::cout << "ディレクトリを作成しました:" << dirPath << std::endl;
+    }  
+
+    std::ifstream ifs(dirPath / filename);
     if(!ifs.is_open())
     {
         return result;
@@ -125,7 +131,7 @@ std::string FILEEDIT::OutputFileWrite(const std::string& filename,const std::str
         std::cout << "ディレクトリを作成しました:" << dirPath << std::endl;
     }    
 
-    std::ofstream ofs(dirPath / filename); 
+    std::ofstream ofs(dirPath / filename);  // dirPathにfilenameを作成
     if(!ofs.is_open())
     {
         return result;

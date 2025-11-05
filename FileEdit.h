@@ -37,7 +37,7 @@ public:
     ErrorCode ArgumentCheck(std::string& Filename);
     ErrorCode CheckBdfFile(const std::string& Filename,int& x,int& y,int& code);
 
-    std::string InputFileRead(const std::string& filename);
+    std::string InputFileRead(const std::string& filename,const std::string& path);
     std::string OutputFileWrite(const std::string& filename,const std::string& After,const std::string& path);
 };
 

@@ -9,24 +9,25 @@
 #include <regex>
 #include <vector>
 
-// 状態管理フラグ
-enum class State{
-    SEARCH_CODE,
-    START_BITMAP,
-    WAITING_ENDCHAR,
-    FINISH_CONVERT,
-};
+namespace bdfbybyte{
+    // 状態管理フラグ
+    enum class State{
+        SEARCH_CODE,
+        START_BITMAP,
+        WAITING_ENDCHAR,
+        FINISH_CONVERT,
+    };
 
-enum class ErrorCode{
-    Success,
-    NotOpenBDF,
-    NotFountCode,
-};
-
+    enum class ResultCode{
+        Success,
+        NotOpenBDF,
+        NotFountCode,
+    };
+}
 
 typedef struct{
     bool result;
-    ErrorCode errorCode;
+    bdfbybyte::ResultCode errorCode;
     std::vector<unsigned char> data;
 }FunctionResult;
 
@@ -35,6 +36,7 @@ private:
     // 文字列をバイト配列として出力
     void PushArray(const std::string& hex_data_line, std::vector<unsigned char>& output_array);
     uint8_t ChartoHex(const std::string& str);
+    void HandleWaitingEndChar(const std::string& Line, bdfbybyte::State& CurrentState, std::vector<uint8_t>& ByteData, int& BitmapLines);
 public:
     BDF(/* args */);
     ~BDF();

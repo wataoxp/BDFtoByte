@@ -1,5 +1,7 @@
 #include "BdftoByte.h"
 
+using namespace bdfbybyte;
+
 BDF::BDF(/* args */)
 {
 }
@@ -40,8 +42,6 @@ FunctionResult BDF::ConvertBDFtoArray(const std::string& filename,const std::str
     // 入力ファイル内の文字列を格納
     std::string Line;
     // 抽出対象のENCODING文字列を準備 (例: "STARTCHAR 2122"を探す)
-//    std::string TargetString = "STARTCHAR " + mojicode;
-
     std::string TargetString = "ENCODING " + mojicode;
     // 状態管理フラグ
     State CurrentState = State::SEARCH_CODE;
@@ -67,37 +67,36 @@ FunctionResult BDF::ConvertBDFtoArray(const std::string& filename,const std::str
             if(Line.find(TargetString) == 0) CurrentState = State::START_BITMAP;
             break;
         case State::START_BITMAP:
-            checkFlag = true;
+            checkFlag = true;           // 文字コードが見つかった
             if(Line.find("BITMAP") == 0) CurrentState = State::WAITING_ENDCHAR;
             break;
         case State::WAITING_ENDCHAR:
-            if(Line.find("ENDCHAR") == 0) // ちょっと読みにくいかも
-            {
-                CurrentState = State::FINISH_CONVERT;
-            } 
-            else if(!Line.empty()) 
-            {
-                PushArray(Line,ByteData);
-                BitmapLines++;          //有効行数をカウント
-            }
+            HandleWaitingEndChar(Line,CurrentState,ByteData,BitmapLines);
             break;
         default:
             break;
         }        
-        if (CurrentState == State::FINISH_CONVERT)
-        {
-            break;
-        }
+        if (CurrentState == State::FINISH_CONVERT) break;
     }
 
-    if (!checkFlag)
-    {
-        return FunctionResult{false,ResultCode::NotFountCode,{}};
-    }
+    if (!checkFlag) return FunctionResult{false,ResultCode::NotFountCode,{}};
 
     ByteData.insert(ByteData.end(),(Height - BitmapLines),0x00);            // 末尾から足りない行数分0を追加
 
     return FunctionResult{true,ResultCode::Success,ByteData};
+}
+
+inline void BDF::HandleWaitingEndChar(const std::string& Line, State& CurrentState, std::vector<uint8_t>& ByteData, int& BitmapLines)
+{
+    if(Line.find("ENDCHAR") == 0)            
+    {
+        CurrentState = State::FINISH_CONVERT;
+    } 
+    else if(!Line.empty()) 
+    {
+        PushArray(Line, ByteData);
+        BitmapLines++;          // 有効行数をカウント
+    }
 }
 
 std::string BDF::ExportByteArray(const std::vector<unsigned char>& data,const std::string& mojicode)

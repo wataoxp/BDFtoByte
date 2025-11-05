@@ -21,7 +21,8 @@ std::string REGEX::EditFileString(const std::string& before,int width)
     std::string After;          //置換後の文字列        
     std::string ArrayName;
 
-    pattern = R"(unsigned char .+\[\] = |,0x)";         //R”()”は正規表現用リテラル
+//    pattern = R"(unsigned char .+\[\] = |,0x)";         //R”()”は正規表現用リテラル
+    pattern = R"(unsigned char .+\[\] = )";     // ここで分岐
     replacement = "";
     After = RegexReplace(str,pattern,replacement);
 
@@ -47,7 +48,6 @@ std::string REGEX::EditFileString(const std::string& before,int width)
 
     After.pop_back();       // 末尾の改行を消す
 
-    // 文字列内に挿入できるのは文字列だけ
     if (width > 8)
     {
         ArrayName = "unsigned short shinonome[]["+std::to_string(width)+"] = {\n";
@@ -57,8 +57,8 @@ std::string REGEX::EditFileString(const std::string& before,int width)
         ArrayName = "unsigned char shinonome[]["+std::to_string(width)+"] = {\n";
     }
     
-    After.insert(0,ArrayName);
-    After.append("};");
+    After.insert(0,ArrayName);          // 先頭に配列名
+    After.append("};");                 // 末尾を閉じる
 
     return After;
 }
