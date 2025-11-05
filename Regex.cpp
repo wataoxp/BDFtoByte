@@ -21,8 +21,17 @@ std::string REGEX::EditFileString(const std::string& before,int width)
     std::string After;          //置換後の文字列        
     std::string ArrayName;
 
-//    pattern = R"(unsigned char .+\[\] = |,0x)";         //R”()”は正規表現用リテラル
-    pattern = R"(unsigned char .+\[\] = )";     // ここで分岐
+    if (width > 8)
+    {
+        pattern = R"(unsigned char .+\[\] = |,0x)";
+    }
+    else
+    {
+        pattern = R"(unsigned char .+\[\] = )";
+    }
+    
+
+    // pattern = R"(unsigned char .+\[\] = |,0x)";         //R”()”は正規表現用リテラル
     replacement = "";
     After = RegexReplace(str,pattern,replacement);
 

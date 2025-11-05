@@ -45,14 +45,4 @@ public:
     FunctionResult ConvertBDFtoArray(const std::string& filename,const std::string& mojicode,int Width);
     // バイト配列の作成
     std::string ExportByteArray(const std::vector<unsigned char>& data,const std::string& JisCode);
-    std::string CodetoString(int code,int num);
 };
-
-inline std::string BDF::CodetoString(int code,int num)
-{
-    std::stringstream tmp;
-
-    tmp << code + num;
-
-    return tmp.str();
-}
