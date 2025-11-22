@@ -39,8 +39,8 @@ int main(int argc,char*argv[])
         return 1;
     }
 
-    /********** 暫定値 **************/
-    Names.EndCode = 3;
+    /********** 暫定値 変換文字数 **************/
+    Names.EndCode = 100;
 
     // BDF to Byte
     std::stringstream ss;
@@ -121,18 +121,20 @@ static bool ConvertBDF(UserInputFiles& Names,FontFormats& FontSize,BDF& bdf,FILE
     FunctionResult Result;
     std::vector<unsigned char> Array;
 
-    // Names.StartCode = 0x2421;
-    // Names.EndCode = 10;
-
-    for (int i = 0; i <= ((Names.StartCode+Names.EndCode) - Names.StartCode); i++)
+    // 該当する文字コードが見つからない場合、ループ数を増やす
+    int tmpCount = Names.StartCode+Names.EndCode;
+    
+    for (int i = Names.StartCode; i < (tmpCount); i++)
     {             
         // 文字コードを変換
-        mojiCode = std::to_string(Names.StartCode + i);
+        mojiCode = std::to_string(i);
+
         // BDFファイルから所定の文字列をサーチ
         Result = bdf.ConvertBDFtoArray(Names.BdfFileName, mojiCode,FontSize.Width);     
         
         if(Result.errorCode == bdfbybyte::ResultCode::NotFountCode)
         {
+            tmpCount++;
             continue;
         }
 

@@ -116,6 +116,7 @@ std::string BDF::ExportByteArray(const std::vector<unsigned char>& data,const st
         // 16進数形式で出力し、0埋め
         ss << "0x" << std::hex << std::uppercase << std::setw(2) << std::setfill('0') << (int)data[i];
 
+        // 末尾でないならカンマを打つ
         if (i < data.size() - 1)
         {
             ss << ",";
